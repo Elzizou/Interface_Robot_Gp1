@@ -281,6 +281,16 @@ class Interface():
         xin, yin = self.plt_draw[-1][0], self.plt_draw[-1][1]
         ### Calcul dans le cas (x0,y0)=(0,0) et direction = (0,1)
         dx, dy = xout - xin, yout - yin
+        self.ax.plot([0,dx], [0,dy],color='r')
+        ## TEST print dx, dy absolue
+        # theta = self.get_ang((1,0),self.directions[-1])
+        theta = np.pi/4
+        print("init_arc : theta={}".format(theta))
+        dxr, dyr = -np.sin(theta)*dy+np.cos(theta)*dx, np.cos(theta)*dy+np.sin(theta)*dx
+        print("dxr = {0}, dyr={1}".format(dxr,dyr))
+        # dx,dy=dxr, dyr
+        ## Test print dx, dy relatif
+        # self.ax.plot([0,dxr], [0,dyr], color='k')
         theta_ini = self.get_ang((1, 0), (1, 0))
         Xcv = dy * np.sin(theta_ini) + dx * np.cos(theta_ini)
         Ycv = dy * np.cos(theta_ini) - dx * np.sin(theta_ini)
@@ -298,10 +308,9 @@ class Interface():
         Xcv, Ycv, sgn, X, Y = self.init_arc(xout, yout)
 
         ### Changement de base du cas précédent pour le mettre en modèle global
-        # dir_2 = self.directions[-1]
-        # dir_2 = dir_2 / np.linalg.norm(dir_2)
-        # theta =  self.get_ang((1,0),dir_2)
-        theta = sgn * np.arctan(Ycv / Xcv)
+        dir_2 = self.directions[-1]
+        theta = np.pi/2 - self.get_ang((1,0),dir_2)
+        # theta = sgn * np.arctan(Ycv / Xcv)
         print("L'angle est {0}".format(theta))
         Xn, Yn = list(), list()
         for k in range(len(X)):
@@ -309,7 +318,8 @@ class Interface():
             Xn.append(xglob)
             Yn.append(yglob)
         self.ax.plot(Xn, Yn)
-        dv_dir = (X[-1] - X[-2], Y[-1] - Y[-2])
+        dv_dir = X[-1][0] - X[-2][0], Y[-1][0] - Y[-2][0]
+        print(dv_dir)
         self.add_direction(dv_dir)
         self.drawing.set_data(self.plt_draw[:, 0], self.plt_draw[:, 1])
         self.ax.figure.canvas.draw()
@@ -419,7 +429,8 @@ class Interface():
     def changement_base(self, xrel, yrel, theta, x0, y0):
         """Change la base (rotation, translation)"""
         chg_base = np.array([[np.cos(theta), -np.sin(theta), x0],
-                             [np.cos(theta), np.sin(theta), y0]])
+                             [np.cos(theta), np.sin(theta), y0],
+                             [0,0,1]])
         j = np.array([[xrel],
                       [yrel],
                       [1]])
