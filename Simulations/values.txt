@@ -1,0 +1,4 @@
+#Fichier de commande type, structure doit être respectée:
+#On peut directement écrire dessus si on souhaite effectuer des tests pour les programmes de simulations
+
+A,2,2;R,-1.57;L,2;R,-1.57;L,2
