@@ -11,7 +11,6 @@ from matplotlib.backends.backend_tkagg import (
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import tkinter.scrolledtext as tkscrolledtext
-from circlefrompt import circles_from_p1p2r
 
 
 class Interface():
@@ -281,142 +280,61 @@ class Interface():
         xin, yin = self.plt_draw[-1][0], self.plt_draw[-1][1]
         ### Calcul dans le cas (x0,y0)=(0,0) et direction = (0,1)
         dx, dy = xout - xin, yout - yin
-        self.ax.plot([0,dx], [0,dy],color='r')
-        ## TEST print dx, dy absolue
-        # theta = self.get_ang((1,0),self.directions[-1])
-        theta = np.pi/4
-        print("init_arc : theta={}".format(theta))
-        dxr, dyr = -np.sin(theta)*dy+np.cos(theta)*dx, np.cos(theta)*dy+np.sin(theta)*dx
-        print("dxr = {0}, dyr={1}".format(dxr,dyr))
-        # dx,dy=dxr, dyr
-        ## Test print dx, dy relatif
-        # self.ax.plot([0,dxr], [0,dyr], color='k')
+        xdir, ydir = self.directions[-1][0], self.directions[-1][1]
+        ang_b = self.get_ang((1, 0), (self.directions[-1][0], self.directions[-1][1]))
+        dxr, dyr = self.rot_inv(xin,yin, xout, yout, np.pi/2-ang_b)
         theta_ini = self.get_ang((1, 0), (1, 0))
-        Xcv = dy * np.sin(theta_ini) + dx * np.cos(theta_ini)
-        Ycv = dy * np.cos(theta_ini) - dx * np.sin(theta_ini)
-        if Ycv < 0: return  # On bannit le cas où Ycv<0
+
+        Xcv = dyr * np.sin(theta_ini) + dxr * np.cos(theta_ini)
+        Ycv = dyr * np.cos(theta_ini) - dxr * np.sin(theta_ini)
+        print("init_arc : Xcv = {0}, Ycv={1}".format(Xcv,Ycv))
+        if Ycv < 0: return None, None,None, None, None # On bannit le cas où Ycv<0
         sgn = (Xcv / np.abs(Xcv))
         R = sgn * (Xcv ** 2 + Ycv ** 2) / (2 * Xcv)
         X = np.linspace(0, Xcv, 100)
         Y = np.sqrt(R ** 2 - np.power(X - sgn * R, 2))
-        # self.ax.plot(X, Y)
         return Xcv, Ycv, sgn, X, Y
 
     def draw_CIR(self, xout, yout):
         """Trace le CIR"""
         xin, yin = self.plt_draw[-1][0], self.plt_draw[-1][1]
         Xcv, Ycv, sgn, X, Y = self.init_arc(xout, yout)
-
+        ang_b = self.get_ang((0, 1), self.directions[-1])
+        if np.dot((self.directions[-1][0], 0),
+                  (1, 0)) > 0:
+            ang_b = -ang_b
+        if Xcv==None:
+            print("marche pas")
+            return
         ### Changement de base du cas précédent pour le mettre en modèle global
         dir_2 = self.directions[-1]
-        theta = np.pi/2 - self.get_ang((1,0),dir_2)
-        # theta = sgn * np.arctan(Ycv / Xcv)
-        print("L'angle est {0}".format(theta))
         Xn, Yn = list(), list()
+        Vn = list()
         for k in range(len(X)):
-            xglob, yglob = self.changement_base(X[k], Y[k], theta, xin, yin)
+            xglob, yglob = self.changement_base(X[k], Y[k], ang_b, xin, yin)
             Xn.append(xglob)
             Yn.append(yglob)
-        self.ax.plot(Xn, Yn)
-        dv_dir = X[-1][0] - X[-2][0], Y[-1][0] - Y[-2][0]
-        print(dv_dir)
+            if not np.isnan(xglob) and not np.isnan(yglob):
+                Vn.append([xglob,yglob])
+        # print(Xn)
+        # self.ax.plot(Xn, Yn)
+        Vn = np.reshape(np.array(Vn), (len(Vn), 2))
+        self.plt_draw = np.vstack((self.plt_draw, np.array(Vn)))
+        dv_dir = Xn[-1] - Xn[-2], Yn[-1] - Yn[-2]
+        # print(dv_dir)
         self.add_direction(dv_dir)
         self.drawing.set_data(self.plt_draw[:, 0], self.plt_draw[:, 1])
         self.ax.figure.canvas.draw()
         self.add_command(2, xout, yout)
 
-    def draw_CIR2(self, xout, yout):
-        """Trace le CIR, méthode 2"""
-        xin, yin = self.plt_draw[-1][0], self.plt_draw[-1][1]
-        xdir, ydir = self.directions[-1]
-        gauche = np.dot([-ydir, xdir], [xout - xin, yout - yin]) / np.abs(
-            np.dot([-ydir, xdir], [xout - xin, yout - yin]))
-        if (yout == 0 or xout == 0):
-            print("Configuration impossible pour CIR")
-        else:
-            dx, dy = xout - xin, yout - yin
-            theta_ini = self.get_ang((0, 1), (0, 1))
-            Xcv = dy * np.sin(theta_ini) + dx * np.cos(theta_ini)
-            Ycv = dy * np.cos(theta_ini) - dx * np.sin(theta_ini)
-            sgn = (Xcv / np.abs(Xcv))
-            R = sgn * (Xcv ** 2 + Ycv ** 2) / (2 * Xcv)
-            c1 = circles_from_p1p2r((xin, yin), (xout, yout), R)
-            c11, c12 = c1
-            xc1, yc1, r1 = c11.x, c11.y, c11.r
-            gauchec1 = np.dot([-ydir, xdir], [xc1 - xin, yc1 - yin]) / np.abs(
-                np.dot([-ydir, xdir], [xc1 - xin, yc1 - yin]))
-            # print("Circle 1 (x={0}, y={1}, r={2}".format(xc1,yc1,r1))
-            circle1 = plt.Circle((xc1, yc1), r1, alpha=0.1)
-            # self.ax.plot(xc1,yc1,'ro', color='b')
+    def rot_inv(self, xin, yin, xout, yout, theta):
+        dx, dy = xout - xin, yout - yin
+        print("rot_inv : dx = {0}, dy={1}".format(dx,dy))
+        print("rot_inv : theta={}".format(theta))
+        dxr, dyr = -np.sin(theta)*dy+np.cos(theta)*dx, np.cos(theta)*dy+np.sin(theta)*dx
+        print("rot_inv : dxr = {0}, dyr={1}".format(dxr,dyr))
+        return dxr, dyr
 
-            xc2, yc2, r2 = c12.x, c12.y, c12.r
-            gauchec2 = np.dot([-ydir, xdir], [xc2 - xin, yc2 - yin]) / np.abs(
-                np.dot([-ydir, xdir], [xc2 - xin, yc2 - yin]))
-            # print("Circle 2 (x={0}, y={1}, r={2}".format(xc2,yc2,r2))
-            circle2 = plt.Circle((xc2, yc2), r2, alpha=0.1)
-            # self.ax.plot(xc2,yc2,'ro', color='g')
-            self.ax.add_artist(circle2)
-            self.ax.add_artist(circle1)
-            X = np.linspace(xin, xout, 101)
-            Yp1 = yc1 + np.sqrt(r2 ** 2 - np.power(X - xc1, 2))
-            Yn1 = yc1 - np.sqrt(r2 ** 2 - np.power(X - xc1, 2))
-            Yp2 = yc2 + np.sqrt(r2 ** 2 - np.power(X - xc2, 2))
-            Yn2 = yc2 - np.sqrt(r2 ** 2 - np.power(X - xc2, 2))
-            Ytp1 = yc1 + np.sqrt(r2 ** 2 - np.power(X + xc1, 2))
-            Ytn1 = yc1 - np.sqrt(r2 ** 2 - np.power(X + xc1, 2))
-            Ytp2 = yc2 + np.sqrt(r2 ** 2 - np.power(X + xc2, 2))
-            Ytn2 = yc2 - np.sqrt(r2 ** 2 - np.power(X + xc2, 2))
-            # length_dict  ={0:self.length(X,Yp1),1:self.length(X,Yn1),2:self.length(X,Yp2),3:self.length(X,Yn2)}
-            Y = [Yp1, Yn1, Yp2, Yn2, Ytp1, Ytp2, Ytn1, Ytn2]
-            Yt = list()
-            length_dict = dict()
-            for y_d in Y:
-                vtest = X[len(X) // 2], y_d[len(X) // 2]
-                sens = (np.dot([xdir, ydir], [vtest[0] - xin, vtest[1] - yin]) /
-                        np.abs(np.dot([xdir, ydir], [vtest[0] - xin, vtest[1] - yin])))
-                if y_d[-1] * yout and y_d[0] * yin and np.abs(np.abs(y_d[-1]) - np.abs(yout)) < 1e-5 \
-                        and np.abs(np.abs(y_d[0]) - np.abs(yin)) < 1e-5 and sens:
-                    Yt = [Yt, y_d]
-                    length_dict.setdefault(len(Yt), self.length(X, y_d))
-            key_min = min(length_dict.keys(), key=(lambda k: length_dict[k]))
-            self.ax.plot(X, Y[key_min])
-            dv = X[-1] - X[-2], Y[key_min][-1] - Y[key_min][-2]
-            self.directions = np.vstack(
-                (self.directions, np.array(dv / np.linalg.norm(dv))))
-            # if gauche>0 and gauchec2>0: #le point est à gauche de la voiture
-            #     print("ggc2")
-            #     Y2 = yc2 - np.sqrt(r2**2-np.power(X-xc2,2))
-            #     self.ax.plot(X,Y2, color='g')
-            #     self.ax.add_artist(circle2)
-            #     dv = X[-1]-X[-2], Y2[-1]-Y2[-2]
-            #     self.directions = np.vstack(
-            #         (self.directions, np.array(dv / np.linalg.norm(dv))))
-            # elif gauche<0 and gauchec2<0: #le point est à gauche de la voiture
-            #     print("ddc2")
-            #     Y2 = yc2 - gauchec2*np.sqrt(r2**2-np.power(X-xc2,2))
-            #     self.ax.plot(X,Y2, color='g')
-            #     self.ax.add_artist(circle2)
-            #     dv = X[-1]-X[-2], Y2[-1]-Y2[-2]
-            #     self.directions = np.vstack(
-            #         (self.directions, np.array(dv / np.linalg.norm(dv))))
-            # elif gauche>0 and gauchec1>0:
-            #     Y1 = yc1 - np.sqrt(r1**2-np.power(X-xc1,2))
-            #     print("ggc1")
-            #     self.ax.plot(X,Y1, color='r')
-            #     self.ax.add_artist(circle1)
-            #     dv = X[-1]-X[-2], Y1[-1]-Y1[-2]
-            #     self.directions = np.vstack(
-            #         (self.directions, np.array(dv / np.linalg.norm(dv))))
-            # elif gauche<0 and gauchec1<0:
-            #     Y1 = yc1 - gauchec1*np.sqrt(r1**2-np.power(X-xc1,2))
-            #     print("ddc1")
-            #     self.ax.plot(X,Y1, color='r')
-            #     self.ax.add_artist(circle1)
-            #     dv = X[-1]-X[-2], Y1[-1]-Y1[-2]
-            #     self.directions = np.vstack(
-            #         (self.directions, np.array(dv / np.linalg.norm(dv))))
-            self.plt_draw = np.vstack((self.plt_draw, np.array([xout, yout])))
-        return 0
 
     def length(self, data1, data2):
         """calcule la longueur de la trajectoire"""
@@ -429,13 +347,13 @@ class Interface():
     def changement_base(self, xrel, yrel, theta, x0, y0):
         """Change la base (rotation, translation)"""
         chg_base = np.array([[np.cos(theta), -np.sin(theta), x0],
-                             [np.cos(theta), np.sin(theta), y0],
+                             [np.sin(theta), np.cos(theta), y0],
                              [0,0,1]])
         j = np.array([[xrel],
                       [yrel],
                       [1]])
         result = np.dot(chg_base, j)
-        return result[0], result[1]
+        return float(result[0]), float(result[1])
 
     def print_command(self):
         """Imprime les commandes sur la console"""
@@ -446,7 +364,7 @@ class Interface():
         path = os.getcwd()
         text_data = open(path + "\\trajectoire.txt", "w")
         for instruct in self.command:
-            txt = "{0};{1};{2}\n".format(int(instruct[0]), round(instruct[1], 3), round(instruct[2], 3))
+            txt = "{0},{1},{2};".format(int(instruct[0]), round(instruct[1], 3), round(instruct[2], 3))
             text_data.write(txt)
         text_data.close()
         return 0
