@@ -363,8 +363,10 @@ class Interface():
         """Renvoie les commande sous forme de fichier texte, la suite du programme est géré par la partie Trajectoire"""
         path = os.getcwd()
         text_data = open(path + "\\trajectoire.txt", "w")
+        command_dict = {0: 'R', 1: 'L', 2: 'A'}
+        c = command_dict[int(self.command[-1][0])]
         for instruct in self.command:
-            txt = "{0},{1},{2};".format(int(instruct[0]), round(instruct[1], 3), round(instruct[2], 3))
+            txt = "{0},{1},{2};".format(c, round(instruct[1], 3), round(instruct[2], 3))
             text_data.write(txt)
         text_data.close()
         return 0
