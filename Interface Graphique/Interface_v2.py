@@ -329,6 +329,7 @@ class Interface():
         # print("{0},{1},{2};".format(c, round(instruct[1], 3), round(instruct[2], 3)))
         text_data.write(txt)
         text_data.close()
+        print("Commandes exportées!")
         return 0
 
     def _quit(self):
