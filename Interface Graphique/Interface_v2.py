@@ -4,7 +4,7 @@ import math
 import tkinter
 import os
 import matplotlib.patches as mpatches
-
+from vocal.speech_reco_tk import Srwindow
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
 # Implement the default Matplotlib key bindings.
@@ -93,6 +93,9 @@ class Interface():
 
         self.export_button = tkinter.Button(master=self.query_frame, text="Export", command=self.command_txt)
         self.export_button.pack(side=tkinter.LEFT)
+
+        self.mic_button = tkinter.Button(master=self.query_frame, text="Mic", command=self.mic)
+        self.mic_button.pack(side=tkinter.LEFT)
 
         self.query_frame.pack(side = tkinter.LEFT)
 
@@ -375,6 +378,10 @@ class Interface():
         col += 1
         self.update_linbutton = tkinter.Button(master=self.window, text="LIN", command=self.LIN)
         self.update_linbutton.grid(row=2, column=colcir)
+
+    def mic(self):
+        window = tkinter.Toplevel
+        Srwindow(self.root, window)
 
 
 Interface()
