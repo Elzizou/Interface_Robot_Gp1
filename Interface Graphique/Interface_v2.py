@@ -4,13 +4,20 @@ import math
 import tkinter
 import os
 import matplotlib.patches as mpatches
-from vocal.speech_reco_tk import Srwindow
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import tkinter.scrolledtext as tkscrolledtext
+import speech_recognition as sr
+from PIL import ImageTk ,Image
+import os
+import re
+
+cwd_path = os.getcwd()+r'\vocal'
+Rotation_Regex = re.compile(r'(rotation|rot)? (\d*) (degrees|radian|rad)?')
+
 
 class Interface():
     # VARIABLES
@@ -380,9 +387,67 @@ class Interface():
         self.update_linbutton.grid(row=2, column=colcir)
 
     def mic(self):
-        window = tkinter.Toplevel
-        Srwindow(self.root, window)
+        self.window2 = tkinter.Toplevel()
+        f =tkinter.Frame(self.window2)
+        self.set_buttons_mic(f)
+        f.pack()
 
+    def set_buttons_mic(self, frame):
+        col = 0
+        but1 = tkinter.Button(frame,text="Record",  command=self.reco)
+        but1.grid(row=0, column=col)
+        col += 1
+        self.cmdentry = tkinter.Entry(frame)
+        self.cmdentry.grid(row=0, column=col)
+        col += 1
+        but2=tkinter.Button(frame, text="Confirm", command=self.confirm)
+        but2.grid(row=0, column=col)
+        col += 1
+        but3=tkinter.Button(frame, text="Export", command=self.export)
+        but3.grid(row=0, column=col)
+
+    def reco(self):
+        self.cmdentry.delete(0,tkinter.END)
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            print("Say Something!")
+            self.cmdentry.insert(0,"Recording!")
+            audio = r.listen(source)
+        try:
+            print("Google Speech Recognition thinks you said " + r.recognize_google(audio))
+            txt=r.recognize_google(audio)
+            self.cmdentry.delete(0,tkinter.END)
+            self.cmdentry.insert(0, txt)
+        except sr.UnknownValueError:
+            print("Google Speech Recognition could not understand audio")
+        except sr.RequestError as e:
+            print("Could not request results from Google Speech Recognition service; {0}".format(e))
+        self.to_command(txt)
+        return 0
+
+    def to_command(self, text):
+        consigne = Rotation_Regex.search(text).group(2)
+        if consigne!=None:
+            print("on reconnait une rotation de :", consigne)
+            self.thetaentry.delete(0,tkinter.END)
+            self.thetaentry.insert(0,consigne)
+            self.ROT()
+
+    def confirm(self):
+        return 0
+    def export(self):
+        return 0
+
+def init_image(path, size=(28,28)):
+    img = Image.open(cwd_path+path)
+    img= img.resize(size)
+    result= ImageTk.PhotoImage()
+    result.__photo=img
+    result.image = Image.fromarray(img)
+    return result
+
+# play_ico=init_image(r'\icon\play.png')
+# record_ico = init_image(r'\icon\record.png')
 
 Interface()
 tkinter.mainloop()
