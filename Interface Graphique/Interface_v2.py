@@ -1,18 +1,20 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import math
-import tkinter
 import os
-import matplotlib.patches as mpatches
+
+# Mathematical tools and plotting tools
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Interface Tools and libraries
+import tkinter
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
-# Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import tkinter.scrolledtext as tkscrolledtext
-import speech_recognition as sr
-from PIL import ImageTk ,Image
-import os
+
+# Speech Recognition libraries
+import speech_recognition as sr #PyAudio is needed
+from PIL import ImageTk, Image
 import re
 
 cwd_path = os.getcwd()+r'\vocal'
