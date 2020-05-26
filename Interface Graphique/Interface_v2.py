@@ -419,9 +419,9 @@ class Interface():
         col += 1
         but2=tkinter.Button(frame, text="Confirm", command=self.confirm)
         but2.grid(row=0, column=col)
-        col += 1
-        but3=tkinter.Button(frame, text="Export", command=self.export)
-        but3.grid(row=0, column=col)
+        # col += 1
+        # but3=tkinter.Button(frame, text="Export", command=self.export)
+        # but3.grid(row=0, column=col)
 
     def reco(self):
         self.cmdentry.delete(0,tkinter.END)
@@ -477,7 +477,10 @@ class Interface():
                 i1=-i1
         command_dict = {0: 'ROT', 1: 'LIN', 2: 'CIR'}
         self.cmdentry.delete(0,tkinter.END)
-        self.cmdentry.insert(0, "{0}({1},{2})\n".format(command_dict[int(c)], i1,i2))
+        if int(c)==0:
+            self.cmdentry.insert(0, "{0}({1})\n".format(command_dict[int(c)], i1))
+        elif int(c)==1:
+            self.cmdentry.insert(0, "{0}(d={1})\n".format(command_dict[int(c)], i1))
         return (c, i1, i2)
 
     def confirm(self):
