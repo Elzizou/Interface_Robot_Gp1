@@ -16,8 +16,12 @@ import os
 import re
 
 cwd_path = os.getcwd()+r'\vocal'
-Rotation_Regex = re.compile(r'(rotation|rot)? (\d*) (degrees|radian|rad)?')
-
+Rotation_Regex = re.compile(r'(rotation|rot)')
+Sclock_Regex = re.compile(r'(clock.*\s?|right)')
+Snclock_Regex = re.compile(r'(anticlock.*\s?|left)')
+LIN_Regex = re.compile(r'(line.*\s\s?|go)')
+SLIN_Regex = re.compile(r'(back.*\s\s?)')
+digit_regex = re.compile(r'\d{1,3}')
 
 class Interface():
     # VARIABLES
@@ -41,6 +45,7 @@ class Interface():
         self.textbox = tkscrolledtext.ScrolledText(master=self.root, wrap='word', height=2)
         self.textbox.pack(side=tkinter.TOP, fill='x', expand=1)
         self.set_buttons()
+
 
     def setup(self):
         """Mise en place de la Figure Matplotlib"""
@@ -161,10 +166,13 @@ class Interface():
         print("Simulation à implanter dans l'interface graphique?")
 
     # Méthodes de tracé
-    def ROT(self):
+    def ROT(self, ang_ent=0, ent=False):
         """Méthode de Rotation de la voiture"""
         # Update direction
-        angrad = float(self.thetaentry.get()) * np.pi * 2 / 360
+        if ent:
+            angrad = float(ang_ent) * np.pi * 2 / 360
+        else:
+            angrad = float(self.thetaentry.get()) * np.pi * 2 / 360
         xdir, ydir = self.directions[-1]
         new_dir = self.rotatenp(xdir, ydir, -angrad)
         new_dir = np.array([round(new_dir[0], 2), round(new_dir[1], 2)])
@@ -177,9 +185,12 @@ class Interface():
         self.ax.figure.canvas.draw()
         return 0
 
-    def LIN(self):
+    def LIN(self,d_ent=0, ent=False):
         """Méthode de ligne droite de la voiture"""
-        d = float(self.dentry.get())
+        if ent:
+            d=float(d_ent)
+        else:
+            d = float(self.dentry.get())
         xold, yold = self.plt_draw[-1]
         xdir, ydir = self.directions[-1]
         # print("(xold = {0}, yold = {1}, xdir = {2}, ydir = {3}".format(xold, yold, xdir, ydir))
@@ -392,9 +403,15 @@ class Interface():
         self.set_buttons_mic(f)
         f.pack()
 
+    def init_image(self):
+        self.play_ico=init_image(r'\icon\play.png')
+        self.record_ico = init_image(r'\icon\record.png')
+
     def set_buttons_mic(self, frame):
+        # self.init_image()
         col = 0
-        but1 = tkinter.Button(frame,text="Record",  command=self.reco)
+        # but1 = tkinter.Button(frame,text="Record", image=self.record_ico,  command=self.reco)
+        but1 = tkinter.Button(frame,text="Record",command=self.reco)
         but1.grid(row=0, column=col)
         col += 1
         self.cmdentry = tkinter.Entry(frame)
@@ -409,6 +426,7 @@ class Interface():
     def reco(self):
         self.cmdentry.delete(0,tkinter.END)
         r = sr.Recognizer()
+        txt =""
         with sr.Microphone() as source:
             print("Say Something!")
             self.cmdentry.insert(0,"Recording!")
@@ -416,24 +434,58 @@ class Interface():
         try:
             print("Google Speech Recognition thinks you said " + r.recognize_google(audio))
             txt=r.recognize_google(audio)
-            self.cmdentry.delete(0,tkinter.END)
-            self.cmdentry.insert(0, txt)
         except sr.UnknownValueError:
             print("Google Speech Recognition could not understand audio")
         except sr.RequestError as e:
             print("Could not request results from Google Speech Recognition service; {0}".format(e))
-        self.to_command(txt)
+        self.v_command = self.to_command(txt)
         return 0
 
     def to_command(self, text):
-        consigne = Rotation_Regex.search(text).group(2)
-        if consigne!=None:
-            print("on reconnait une rotation de :", consigne)
-            self.thetaentry.delete(0,tkinter.END)
-            self.thetaentry.insert(0,consigne)
-            self.ROT()
+        # consigne = Rotation_Regex.search(text).group(2)
+        # if consigne!=None:
+        #     print("on reconnait une rotation de :", consigne)
+        #     self.thetaentry.delete(0,tkinter.END)
+        #     self.thetaentry.insert(0,consigne)
+        #     self.ROT(ang_ent=consigne, ent=True)
+        text+=" "
+        c, i1, i2=0,0,0
+        rot = Rotation_Regex.findall(text)
+        srot = Sclock_Regex.findall(text)
+        snrot = Snclock_Regex.findall(text)
+        lin = LIN_Regex.findall(text)
+        slin = SLIN_Regex.findall(text)
+        if digit_regex.search(text)!=None:
+            dig = digit_regex.search(text).group(0)
+        if len(lin)!=0:
+            c=1
+            if digit_regex.search(text)!=None:
+                i1=dig
+            else:
+                i1 = 1
+            if len(slin)!=0:
+                i1=-i1
+        if len(rot)!=0:
+            c=0
+            print(snrot)
+            if digit_regex.search(text)!=None:
+                print(dig)
+                i1=float(dig)
+            else:
+                i1 = 90
+            if len(snrot)!=0:
+                i1=-i1
+        command_dict = {0: 'ROT', 1: 'LIN', 2: 'CIR'}
+        self.cmdentry.delete(0,tkinter.END)
+        self.cmdentry.insert(0, "{0}({1},{2})\n".format(command_dict[int(c)], i1,i2))
+        return (c, i1, i2)
 
     def confirm(self):
+        c, i1, i2 = self.v_command
+        if c==0:
+            self.ROT(ang_ent=float(i1), ent=True)
+        if c==1:
+            self.LIN(d_ent=float(i1), ent=True)
         return 0
     def export(self):
         return 0
@@ -446,8 +498,7 @@ def init_image(path, size=(28,28)):
     result.image = Image.fromarray(img)
     return result
 
-# play_ico=init_image(r'\icon\play.png')
-# record_ico = init_image(r'\icon\record.png')
+
 
 Interface()
 tkinter.mainloop()
