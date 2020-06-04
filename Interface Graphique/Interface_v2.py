@@ -12,6 +12,12 @@ from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
 from matplotlib.figure import Figure
 
+# Import simu_superpo
+filepath = os.path.realpath("..")+r"\Simulations"+"\\"
+import sys
+sys.path.append(filepath)
+
+
 # Modeles de reconnaissance de commande pour la commande Vocale
 Rotation_Regex = re.compile(r'(rotation|rot)')
 Sclock_Regex = re.compile(r'(clock.*\s?|right)')
@@ -26,7 +32,7 @@ class Interface():
     FIGSIZE = (5, 4)
     DPI = 100
     DRAW_METHOD = 1  # Permet à l'interface de choisir entre les methodes de trace (LIN,CIR)
-    AXIS = [-10, 10, -10, 10]  # Definit l'espace de travail du robot
+    AXIS = [-5, 5, -1, 5]  # Definit l'espace de travail du robot
     GRID = True  # Definit la presence ou non de la grille
     VOICE_RECO = True
 
@@ -154,9 +160,9 @@ class Interface():
         self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
         self.DRAW_METHOD = 1
 
-    @staticmethod
-    def Simulation():
-        print("Simulation a ajouter")
+    def Simulation(self):
+        self._quit()
+        import simu_superpo
 
     # Méthodes de tracé
     def ROT(self, ang_entry=0.0, entry=False):

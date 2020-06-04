@@ -3,12 +3,13 @@ import pygame
 from math import *
 from operator import add
 import matplotlib.pyplot as plt
+import os
 
 global v_droit
 global v_gauche
 
-
-values = open("values.txt", "r")
+filepath = os.path.realpath("..")+r"\Interface Graphique\values.txt"
+values = open(filepath, "r")
 ordres = values.readline().split(";")
 v_droit = []
 v_gauche = []
