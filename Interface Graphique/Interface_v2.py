@@ -3,7 +3,6 @@ import re
 # Interface Tools and libraries
 import tkinter
 import tkinter.scrolledtext as tkscrolledtext
-
 import matplotlib.pyplot as plt
 import numpy as np
 import speech_recognition as sr  # PyAudio is needed
@@ -35,6 +34,7 @@ class Interface():
     AXIS = [-5, 5, -1, 5]  # Definit l'espace de travail du robot
     GRID = True  # Definit la presence ou non de la grille
     VOICE_RECO = True
+    MUSIC =True
 
     def __init__(self):
         """Initialisation de Tkinter"""
@@ -50,9 +50,13 @@ class Interface():
         self.setup()
         # Variables
         self.init_graph()
-
         self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
+
+        'connect to all the events we need'
+        self.press=None
         self.canvas.mpl_connect("button_press_event", self.on_key_press)
+        self.cidrelease = self.ax.figure.canvas.mpl_connect('button_release_event', self.on_release)
+        self.cidmotion = self.ax.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.textbox = tkscrolledtext.ScrolledText(master=self.root, wrap='word', height=2)
         self.textbox.pack(side=tkinter.TOP, fill='x', expand=1)
         self.set_buttons()
@@ -89,12 +93,16 @@ class Interface():
         self.window_button.pack(side=tkinter.LEFT)
 
         self.update_linmethodbutton = tkinter.Button(master=self.query_frame, text="Line",
-                                                     command=self.to_Line, relief=tkinter.SUNKEN)
+                                                     command=lambda :self.change_method(1), relief=tkinter.SUNKEN)
         self.update_linmethodbutton.pack(side=tkinter.LEFT)
 
         self.update_cirmethodbutton = tkinter.Button(master=self.query_frame, text="CIR",
-                                                     command=self.to_CIR)
+                                                     command=lambda : self.change_method(2))
         self.update_cirmethodbutton.pack(side=tkinter.LEFT)
+
+        self.update_freemethodbutton = tkinter.Button(master=self.query_frame, text="Free",
+                                                     command=lambda : self.change_method(3))
+        self.update_freemethodbutton.pack(side=tkinter.LEFT)
 
         self.erase_methodbutton = tkinter.Button(master=self.query_frame, text="Erase",
                                                  command=self.erase_plt)
@@ -109,6 +117,9 @@ class Interface():
         if self.VOICE_RECO:
             self.mic_button = tkinter.Button(master=self.query_frame, text="Mic", command=self.mic)
             self.mic_button.pack(side=tkinter.LEFT)
+
+        self.precision_scale = tkinter.Scale(self.query_frame,from_=1, to=20, orient = "horizontal", tickinterval=2, length=100,label='Precision')
+        self.precision_scale.pack(side=tkinter.LEFT)
 
         self.query_frame.pack(side=tkinter.LEFT)
 
@@ -146,21 +157,53 @@ class Interface():
             self.draw_CIR(x, y)
         # Update Canvas
         self.update_graph()
+        self.press = event.xdata, event.ydata
+
+    def on_motion(self, event):
+        'on motion we will move'
+        if self.press is None: return
+        if event.inaxes != self.ax.axes: return
+        xold, yold = self.press
+        precision = float(self.precision_scale.get())/10
+        # precision=.5
+        if self.DRAW_METHOD==3:
+            dx = event.xdata - xold
+            dy = event.ydata - yold
+            if np.abs(np.linalg.norm((dx,dy)))>precision:
+                # self.CIR(cir_entry=(event.xdata, event.ydata), entry=True)
+                self.rot_lin(event.xdata, event.ydata)
+                # self.add_coordinate([event.xdata, event.ydata])
+                self.update_graph()
+                self.add_direction([dx,dy])
+                self.press =event.xdata, event.ydata
+
+    def on_release(self, event):
+        'on release we reset the press data'
+        self.press = None
+        self.ax.figure.canvas.draw()
 
     # Changement de méthode de trace
-    def to_CIR(self):
-        """Change la methode de trace au CIR"""
-        self.update_cirmethodbutton.config(relief=tkinter.SUNKEN)
-        self.update_linmethodbutton.configure(relief=tkinter.RAISED)
-        self.DRAW_METHOD = 2
 
-    def to_Line(self):
-        """Change la methode de trace au LIN"""
-        self.update_linmethodbutton.config(relief=tkinter.SUNKEN)
-        self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
-        self.DRAW_METHOD = 1
+    def change_method(self, method):
+        if method==1:
+            self.update_linmethodbutton.config(relief=tkinter.SUNKEN)
+            self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
+            self.update_freemethodbutton.configure(relief=tkinter.RAISED)
+            self.DRAW_METHOD = 1
+        elif method==2:
+            self.update_cirmethodbutton.config(relief=tkinter.SUNKEN)
+            self.update_linmethodbutton.configure(relief=tkinter.RAISED)
+            self.update_freemethodbutton.configure(relief=tkinter.RAISED)
+            self.DRAW_METHOD = 2
+        else:
+            self.update_freemethodbutton.config(relief=tkinter.SUNKEN)
+            self.update_linmethodbutton.configure(relief=tkinter.RAISED)
+            self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
+            self.DRAW_METHOD=3
+
 
     def Simulation(self):
+        self.fig.savefig("last_figure.png")
         self._quit()
         import simu_superpo
 
@@ -204,9 +247,12 @@ class Interface():
         self.update_graph()
         return 0
 
-    def CIR(self):
+    def CIR(self, cir_entry=(0,0), entry=False):
         """Méthode tracé d'arc de la voiture"""
-        self.draw_CIR(float(self.xcirentry.get()), float(self.ycirentry.get()))
+        if entry:
+            self.draw_CIR(float(cir_entry[0]), float(cir_entry[1]))
+        else:
+            self.draw_CIR(float(self.xcirentry.get()), float(self.ycirentry.get()))
         self.update_graph()
 
     def rot_lin(self, x, y):
