@@ -7,8 +7,15 @@ import basique
 
 pygame.init()
 
-size_x, size_y = 600, 400
-scale = 50
+
+####################################################################
+### Initialisation des dimensions et des données pour la fenetre
+####################################################################
+
+tailles_lignes_x,tailles_lignes_y=10,8
+size_x = 600
+size_y=int(size_x*tailles_lignes_y/tailles_lignes_x)
+scale = 0.5
 xTopLeft, yTopLeft = (40, 60)
 origine = (xTopLeft + 300, yTopLeft + 300)
 
@@ -35,6 +42,9 @@ lines = []
 lines_vitesses_gauche = []
 lines_vitesses_droite = []
 
+####################################################################
+### Classe du véhicule
+####################################################################
 
 class Car:
     def __init__(self, x, y, theta, image):
@@ -55,29 +65,39 @@ class Car:
         self.image = pygame.transform.rotate(self.original_image, self.theta+90)
         x, y = self.rect.center
         self.rect = self.image.get_rect()  # Replace old rect with new rect.
-        self.rect.center = (self.x * scale + origine[0], -self.y * scale + origine[1])  # Put the new rect's center at old center.
+        self.rect.center = (self.x *size_x/10/ scale + origine[0], -self.y/8 *size_y/ scale + origine[1])  # Put the new rect's center at old center.
         # surface.blit(self.image, (self.x * 100 - 8 + size_x / 2, -self.y * 100 + 8 + size_y / 2))
         surface.blit(self.image, self.rect)
 
 
+####################################################################
+### Dessin plan 2D
+####################################################################
+
 def drawlines(surface):
-    for i in range(1, size_x // scale):
-        pygame.draw.line(surface, colors["grey"], (xTopLeft + i * scale, yTopLeft), (xTopLeft + i * scale, yBottomLeft))
+    for i in range(1, tailles_lignes_x):
+        pygame.draw.line(surface, colors["grey"], (xTopLeft + i * size_x/tailles_lignes_x, yTopLeft),
+         (xTopLeft + i * size_x/tailles_lignes_x, yBottomLeft))
         font = pygame.font.SysFont('Rockwell', 15)
-        text = font.render("x= " + str((i - 6)), 1, colors["black"])
-        surface.blit(text, (xTopLeft + i * scale - 7, yBottomLeft + 5))
-    for j in range(1, size_y // scale):
-        pygame.draw.line(surface, colors["grey"], (xTopLeft, yTopLeft + j * scale), (xTopLeft + size_x, yTopLeft + j * scale))
+        text = font.render("x= " + str(round((i - 5)*scale,1)), 1, colors["black"])
+        surface.blit(text, (xTopLeft + i * size_x/tailles_lignes_x - 7, yBottomLeft + 5))
+    for j in range(1, 8):
+        pygame.draw.line(surface, colors["grey"], (xTopLeft, yTopLeft + j * size_y/tailles_lignes_y),
+         (xTopLeft + size_x, yTopLeft + j * size_y/tailles_lignes_y))
         font = pygame.font.SysFont('Rockwell', 15)
-        text = font.render("y= " + str((6 - j)), 1, colors["black"])
-        surface.blit(text, (5, yTopLeft + j * scale - 5))
+        text = font.render("y= " + str(round((5 - j)*scale,1)), 1, colors["black"])
+        surface.blit(text, (5, yTopLeft + j * size_y/tailles_lignes_y - 5))
 
 
 def drawPath(surface):
     for line in lines:
-        pygame.draw.line(surface, colors["black"], (origine[0] + line[0] * scale, origine[1] - line[1] * scale),
-                         (origine[0] + line[2] * scale, origine[1] - line[3] * scale))
+        pygame.draw.line(surface, colors["black"], (origine[0] + line[0] *size_x/tailles_lignes_x/ scale, origine[1] - line[1] *size_x/tailles_lignes_x/ scale),
+                         (origine[0] + line[2] *size_y/tailles_lignes_y/ scale, origine[1] - line[3] *size_y/tailles_lignes_y/ scale))
 
+
+####################################################################
+### Dessin graph
+####################################################################
 
 def drawGraph(surface, taille, maximum):
     nombre_sec=taille*delay+1
@@ -122,6 +142,11 @@ def drawGraph(surface, taille, maximum):
     surface.blit(text, (origine_graph[0] + 5, origine_graph[1] - size_y_graph- 60))
 
 
+####################################################################
+### Fonctions update
+####################################################################
+
+
 def start(surface, car):
     pygame.draw.rect(surface, colors["white"], (0, 0, windowWidth, windowHeight))
     drawlines(surface)
@@ -153,7 +178,15 @@ def updateWindow(surface, car, taille, maximum):
     surface.blit(titleText, (size_x//4*3, 0))
 
 
+####################################################################
+### Main
+####################################################################
+
+
 def main(surface,type):
+    ####################################################################
+    ### Initialisation des données
+    ####################################################################
     running = False
     starting = True
     taille = 0
@@ -176,9 +209,10 @@ def main(surface,type):
 
     car = Car(0,0,theta,car_image)
 
-    ############################################################
-    # Distinction sur le type de simulation
-    ##############
+    ####################################################################
+    ### Récupération des vitesses
+    ####################################################################
+
     if type=="superpo":
         vitesses_droit, vitesses_gauche = superpo.main()
     elif type=="joystick":
@@ -193,7 +227,6 @@ def main(surface,type):
         vitesses_droit, vitesses_gauche = basique.main()
 
 
-    ############################################################
     taille=len(vitesses_gauche)
     maximum = max(max(vitesses_droit), max(vitesses_gauche))
 
@@ -210,12 +243,17 @@ def main(surface,type):
     pygame.draw.rect(surface, colors["white"], (0, 0, windowWidth, windowHeight))
     indice = 0
     while running:
-        #pygame.time.delay(10)
+
+        ####################################################################
+        ### Calculs et mise à jour sur les graphiques
+        ####################################################################
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
         # keys = pygame.key.get_pressed()
         if indice < taille:
+
 
             vit_mot1 = vitesses_droit[indice]
             vit_mot2 = vitesses_gauche[indice]
@@ -225,14 +263,11 @@ def main(surface,type):
 
             vit_rot_robot = (vit_mot1 - vit_mot2) * r / L
 
-            # print(vit_rot_robot)
             vx = numpy.cos(theta) * (vit_mot1 + vit_mot2) * r / 2
             vy = numpy.sin(theta) * (vit_mot1 + vit_mot2) * r / 2
 
             x += vx * delay
             y += vy * delay
-            #print("x"+str(x))
-            #print(y)
 
             theta += vit_rot_robot * delay
 
@@ -252,4 +287,4 @@ def main(surface,type):
     print(theta)
 
 
-main(window,"joystick")
+main(window,"superpo")
