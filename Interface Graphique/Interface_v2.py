@@ -34,7 +34,6 @@ class Interface():
     AXIS = [-5, 5, -1, 5]  # Definit l'espace de travail du robot
     GRID = True  # Definit la presence ou non de la grille
     VOICE_RECO = True
-    MUSIC =True
 
     def __init__(self):
         """Initialisation de Tkinter"""
@@ -89,7 +88,7 @@ class Interface():
         """Mise en place des boutons sur Tkinter"""
         self.query_frame = tkinter.Frame(self.root)
 
-        self.window_button = tkinter.Button(self.query_frame, text="Command Window", command=self.create_window)
+        self.window_button = tkinter.Button(self.query_frame, text="Command Window", command=self.command_window)
         self.window_button.pack(side=tkinter.LEFT)
 
         self.update_linmethodbutton = tkinter.Button(master=self.query_frame, text="Line",
@@ -115,7 +114,7 @@ class Interface():
         self.export_button.pack(side=tkinter.LEFT)
 
         if self.VOICE_RECO:
-            self.mic_button = tkinter.Button(master=self.query_frame, text="Mic", command=self.mic)
+            self.mic_button = tkinter.Button(master=self.query_frame, text="Mic", command=self.voice_command_window)
             self.mic_button.pack(side=tkinter.LEFT)
 
         self.precision_scale = tkinter.Scale(self.query_frame,from_=1, to=20, orient = "horizontal", tickinterval=2, length=100,label='Precision')
@@ -203,6 +202,7 @@ class Interface():
 
 
     def Simulation(self):
+        """Lance la simulation"""
         self.fig.savefig("last_figure.png")
         self._quit()
         import simu_superpo
@@ -362,9 +362,11 @@ class Interface():
 
     # Methodes de mise à jour des variables
     def update_graph(self):
+        """Met à jour le graphique"""
         self.ax.figure.canvas.draw()
 
     def add_coordinate(self, data):
+        """Ajoute les coordonnées au graphique"""
         self.plt_draw = np.vstack((self.plt_draw, np.array(data)))
         self.drawing.set_data(self.plt_draw[:, 0], self.plt_draw[:, 1])
 
@@ -403,7 +405,7 @@ class Interface():
         self.root.destroy()  # this is necessary on Windows to prevent
         # Fatal Python Error: PyEval_RestoreThread: NULL tstate
 
-    def create_window(self):
+    def command_window(self):
         """Affiche l'invité de commande LIN,CIR,ROT"""
         self.window = tkinter.Toplevel(self.root)
         self.set_windowbutton()
@@ -441,13 +443,15 @@ class Interface():
         self.update_linbutton = tkinter.Button(master=self.window, text="LIN", command=self.LIN)
         self.update_linbutton.grid(row=2, column=colcir)
 
-    def mic(self):
+    def voice_command_window(self):
+        """Lance la fenêtre de commande par reconnaissance vocale"""
         self.window2 = tkinter.Toplevel()
         f = tkinter.Frame(self.window2)
         self.set_buttons_mic(f)
         f.pack()
 
     def set_buttons_mic(self, frame):
+        """Met en place les boutons sur la fenêtre de reconnaissance vocale"""
         col = 0
         but1 = tkinter.Button(frame, text="Record", command=self.reco)
         but1.grid(row=0, column=col)
@@ -459,6 +463,7 @@ class Interface():
         but2.grid(row=0, column=col)
 
     def reco(self):
+        """Lance la reconnaissance vocale"""
         self.cmdentry.delete(0, tkinter.END)
         r = sr.Recognizer()
         txt = ""
@@ -477,6 +482,7 @@ class Interface():
         return 0
 
     def to_command(self, text):
+        """Traduit la reconnaissance vocale en commandes"""
         text += " "
         c, i1, i2 = 0, 0, 0
         dig = 0.0
@@ -513,6 +519,7 @@ class Interface():
         return c, i1, i2
 
     def confirm(self):
+        """Soumet la commande"""
         c, i1, i2 = self.v_command
         if c == 0:
             self.ROT(ang_entry=float(i1), entry=True)
