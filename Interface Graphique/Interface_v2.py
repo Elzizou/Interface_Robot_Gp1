@@ -10,6 +10,7 @@ from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
 from matplotlib.figure import Figure
+import bezier
 
 # Import simu_superpo
 filepath = os.path.realpath("..")+r"\Simulations"+"\\"
@@ -34,6 +35,7 @@ class Interface():
     AXIS = [-5, 5, -1, 5]  # Definit l'espace de travail du robot
     GRID = True  # Definit la presence ou non de la grille
     VOICE_RECO = True
+    BEZIER_DEGREE = 4
 
     def __init__(self):
         """Initialisation de Tkinter"""
@@ -103,6 +105,10 @@ class Interface():
                                                      command=lambda : self.change_method(3))
         self.update_freemethodbutton.pack(side=tkinter.LEFT)
 
+        self.update_beziermethodbutton = tkinter.Button(master=self.query_frame, text="Bezier",
+                                                      command=lambda: self.change_method(4))
+        self.update_beziermethodbutton.pack(side=tkinter.LEFT)
+
         self.erase_methodbutton = tkinter.Button(master=self.query_frame, text="Erase",
                                                  command=self.erase_plt)
         self.erase_methodbutton.pack(side=tkinter.LEFT)
@@ -131,6 +137,9 @@ class Interface():
         self.command = np.zeros((1, 3))
         self.directions = np.array([[0, 1]])
         self.drawing, = self.ax.plot(self.plt_draw[:, 0], self.plt_draw[:, 1])
+        self.controlpoints = []
+        self.cpPlot = []
+        self.nb_bezier = 0
 
     def erase_plt(self):
         """Reinitialise le trace"""
@@ -154,6 +163,8 @@ class Interface():
             self.rot_lin(x, y)
         if self.DRAW_METHOD == 2:  # CIR
             self.draw_CIR(x, y)
+        if self.DRAW_METHOD == 4:  # Bézier
+            self.addControlPt(x, y)
         # Update Canvas
         self.update_graph()
         self.press = event.xdata, event.ydata
@@ -188,17 +199,27 @@ class Interface():
             self.update_linmethodbutton.config(relief=tkinter.SUNKEN)
             self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
             self.update_freemethodbutton.configure(relief=tkinter.RAISED)
+            self.update_beziermethodbutton.configure(relief=tkinter.RAISED)
             self.DRAW_METHOD = 1
         elif method==2:
             self.update_cirmethodbutton.config(relief=tkinter.SUNKEN)
             self.update_linmethodbutton.configure(relief=tkinter.RAISED)
             self.update_freemethodbutton.configure(relief=tkinter.RAISED)
+            self.update_beziermethodbutton.configure(relief=tkinter.RAISED)
             self.DRAW_METHOD = 2
-        else:
+        elif method==2:
             self.update_freemethodbutton.config(relief=tkinter.SUNKEN)
             self.update_linmethodbutton.configure(relief=tkinter.RAISED)
             self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
-            self.DRAW_METHOD=3
+            self.update_beziermethodbutton.configure(relief=tkinter.RAISED)
+            self.DRAW_METHOD = 3
+        else:
+            self.update_linmethodbutton.config(relief=tkinter.RAISED)
+            self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
+            self.update_freemethodbutton.configure(relief=tkinter.RAISED)
+            self.update_beziermethodbutton.configure(relief=tkinter.SUNKEN)
+            self.DRAW_METHOD = 4
+
 
 
     def Simulation(self):
@@ -373,10 +394,17 @@ class Interface():
     def add_command(self, c, i1, i2):
         """Met a jour la liste de commandes"""
         self.command = np.vstack((self.command, np.array([c, i1, i2])))
-        command_dict = {0: 'ROT', 1: 'LIN', 2: 'CIR'}
+        command_dict = {0: 'ROT', 1: 'LIN', 2: 'CIR', 3:'Bézier'}
         c = command_dict[int(self.command[-1][0])]
-        self.textbox.insert('1.0',
-                            "{0}({1},{2})\n".format(c, round(self.command[-1][1], 2), round(self.command[-1][2])), 2)
+        if c=='ROT' or c=='LIN':
+            self.textbox.insert('1.0',
+                                "{0}({1})\n".format(c, round(self.command[-1][1], 2)))
+        elif c=='Bézier':
+            self.textbox.insert('1.0',
+                                "{0}({1})\n".format(c, self.nb_bezier))
+        else:
+            self.textbox.insert('1.0',
+                            "{0}({1}, {2})\n".format(c, round(self.command[-1][1], 2), round(self.command[-1][2])), 2)
 
     def add_direction(self, dv):
         """Met à jour la liste de directions"""
@@ -385,17 +413,22 @@ class Interface():
     def command_txt(self):
         """Renvoie les commande sous forme de fichier texte, la suite du programme est gere par la partie Trajectoire"""
         path = os.getcwd()
-        text_data = open(path + "\\values.txt", "w")
-        command_dict = {0: 'R', 1: 'L', 2: 'A'}
+        text_data = open(path + "/values.txt", "w")
+        print(path + "\\values.txt")
+        command_dict = {0: 'R', 1: 'L', 2: 'A', 3:'B'}
         for instruct in self.command[1:-1]:
             c = command_dict[int(instruct[0])]
-            txt = "{0},{1},{2};".format(c, round(instruct[1], 3), round(instruct[2], 3))
+            if c=='B':
+                txt = "{0},{1},{2};".format(c, self.nb_bezier, 0)
+            else:
+                txt = "{0},{1},{2};".format(c, round(instruct[1], 3), round(instruct[2], 3))
             text_data.write(txt)
         instruct = self.command[-1]
         c = command_dict[int(instruct[0])]
         txt = "{0},{1},{2}".format(c, round(instruct[1], 3), round(instruct[2], 3))
         text_data.write(txt)
         text_data.close()
+        print("Dernières coordonnées : (x =  {0}, y = {1})".format(self.plt_draw[-1][0], self.plt_draw[-1][1]))
         print("Commandes exportées!")
         return 0
 
@@ -526,6 +559,35 @@ class Interface():
         if c == 1:
             self.LIN(d_entry=float(i1), entry=True)
         return 0
+
+    def addControlPt(self, x, y):
+        if len(self.controlpoints)==0:
+            self.controlpoints.append([self.plt_draw[-1,0], self.plt_draw[-1, 1]])
+            self.controlpoints.append([x, y])
+            pointplt, = self.ax.plot(x, y, 'ro', color='k')
+            self.cpPlot.append(pointplt)
+        elif len(self.controlpoints) < self.BEZIER_DEGREE:
+            self.controlpoints.append([x, y])
+            pointplt, = self.ax.plot(x, y, 'ro', color='k')
+            self.cpPlot.append(pointplt)
+        else:
+            # Do Bezier Curve
+            cp = self.controlpoints
+            nodes = [[cp[k][0]for k in range(len(cp))], [cp[k][1]for k in range(len(cp))]]
+            nodes = np.asfortranarray(nodes)
+            curve1 = bezier.Curve(nodes, degree=self.BEZIER_DEGREE-1)
+            curve1.plot(num_pts=100)
+            ax = plt.gca()  # get axis handle
+            line = ax.lines[0] # get the first line, there might be more
+            self.add_coordinate(line.get_xydata())
+            # Erase all point
+            for k in range(len(self.cpPlot)):
+                self.cpPlot[k].remove()
+            self.cpPlot = []
+            self.controlpoints = []
+            self.nb_bezier+=1
+            self.add_command(3,0, 0)
+        self.update_graph()
 
 
 Interface()
