@@ -5,6 +5,7 @@ import tkinter
 import tkinter.scrolledtext as tkscrolledtext
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 import speech_recognition as sr  # PyAudio is needed
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_tkagg import (
@@ -35,7 +36,7 @@ class Interface():
     AXIS = [-5, 5, -1, 5]  # Definit l'espace de travail du robot
     GRID = True  # Definit la presence ou non de la grille
     VOICE_RECO = True
-    BEZIER_DEGREE = 4
+    BEZIER_DEGREE = 3
 
     def __init__(self):
         """Initialisation de Tkinter"""
@@ -140,6 +141,8 @@ class Interface():
         self.controlpoints = []
         self.cpPlot = []
         self.nb_bezier = 0
+        self.curves = dict()
+        self.speeds = dict()
 
     def erase_plt(self):
         """Reinitialise le trace"""
@@ -207,7 +210,7 @@ class Interface():
             self.update_freemethodbutton.configure(relief=tkinter.RAISED)
             self.update_beziermethodbutton.configure(relief=tkinter.RAISED)
             self.DRAW_METHOD = 2
-        elif method==2:
+        elif method==3:
             self.update_freemethodbutton.config(relief=tkinter.SUNKEN)
             self.update_linmethodbutton.configure(relief=tkinter.RAISED)
             self.update_cirmethodbutton.configure(relief=tkinter.RAISED)
@@ -414,12 +417,12 @@ class Interface():
         """Renvoie les commande sous forme de fichier texte, la suite du programme est gere par la partie Trajectoire"""
         path = os.getcwd()
         text_data = open(path + "/values.txt", "w")
-        print(path + "\\values.txt")
+        print(path + "/values.txt")
         command_dict = {0: 'R', 1: 'L', 2: 'A', 3:'B'}
         for instruct in self.command[1:-1]:
             c = command_dict[int(instruct[0])]
             if c=='B':
-                txt = "{0},{1},{2};".format(c, self.nb_bezier, 0)
+                txt = "{0},{1},{2};".format(c, instruct[1], 0)
             else:
                 txt = "{0},{1},{2};".format(c, round(instruct[1], 3), round(instruct[2], 3))
             text_data.write(txt)
@@ -428,6 +431,8 @@ class Interface():
         txt = "{0},{1},{2}".format(c, round(instruct[1], 3), round(instruct[2], 3))
         text_data.write(txt)
         text_data.close()
+        self.Generate_VxVy()
+        self.export_bezier()
         print("Dernières coordonnées : (x =  {0}, y = {1})".format(self.plt_draw[-1][0], self.plt_draw[-1][1]))
         print("Commandes exportées!")
         return 0
@@ -561,12 +566,13 @@ class Interface():
         return 0
 
     def addControlPt(self, x, y):
+        """Ajoute Le point de controle en vu du tracé de la courbe de Bézier"""
         if len(self.controlpoints)==0:
             self.controlpoints.append([self.plt_draw[-1,0], self.plt_draw[-1, 1]])
             self.controlpoints.append([x, y])
             pointplt, = self.ax.plot(x, y, 'ro', color='k')
             self.cpPlot.append(pointplt)
-        elif len(self.controlpoints) < self.BEZIER_DEGREE:
+        elif len(self.controlpoints) < self.BEZIER_DEGREE+1:
             self.controlpoints.append([x, y])
             pointplt, = self.ax.plot(x, y, 'ro', color='k')
             self.cpPlot.append(pointplt)
@@ -575,7 +581,7 @@ class Interface():
             cp = self.controlpoints
             nodes = [[cp[k][0]for k in range(len(cp))], [cp[k][1]for k in range(len(cp))]]
             nodes = np.asfortranarray(nodes)
-            curve1 = bezier.Curve(nodes, degree=self.BEZIER_DEGREE-1)
+            curve1 = bezier.Curve(nodes, degree=self.BEZIER_DEGREE)
             curve1.plot(num_pts=100)
             ax = plt.gca()  # get axis handle
             line = ax.lines[0] # get the first line, there might be more
@@ -586,8 +592,56 @@ class Interface():
             self.cpPlot = []
             self.controlpoints = []
             self.nb_bezier+=1
-            self.add_command(3,0, 0)
+            self.curves.setdefault(self.nb_bezier, curve1)
+            self.add_command(3,self.nb_bezier, 0)
         self.update_graph()
+
+    def Generate_VxVy(self):
+        """Génère les vitesses pour les trajectoires en Courbe de Bézier"""
+        dt = 0.1
+        L = 0.3
+        delay = 0.01
+        r = 0.04
+        for curve_key in self.curves.keys():
+            curve = self.curves[curve_key]
+            curve.plot(num_pts=1000)
+            ax = plt.gca()  # get axis handle
+            line = ax.lines[0]  # get the first line, there might be more
+            V = np.array(line.get_xydata())
+            X, Y = V[:, 0], V[:, 1]
+            dX, dY = [], []
+            # Calcule toute les vitesses
+            for i in range(len(X)-1):
+                dX.append((X[i+1]-X[i])/dt)
+                dY.append((Y[i+1]-Y[i])/dt)
+            Lvx, Lvy = dX, dY
+            Lw = [0.]
+            for k in range(1, len(Lvx) - 2):
+                Lw.append((math.atan2(Lvy[k + 1], Lvx[k + 1]) - math.atan2(Lvy[k], Lvx[k])) / delay)
+            Lw.append(0.)
+            Lw.append(0.)
+            w_droit = []
+            w_gauche = []
+            for k in range(len(Lvx) - 1):
+                w_droit.append((math.sqrt(Lvx[k] ** 2 + Lvy[k] ** 2) + Lw[k] * L / 2) / r)
+                w_gauche.append((math.sqrt(Lvx[k] ** 2 + Lvy[k] ** 2) - Lw[k] * L / 2) / r)
+            w_droit.append(0.)
+            w_gauche.append(0.)
+            self.speeds.setdefault(curve_key, (w_droit, w_gauche))
+
+    def export_bezier(self):
+        """Exporte les vitesses pour les trajectoires en courbe de Bézier dans un fichier texte"""
+        path = os.getcwd()
+        text_data = open(path + "/bezier_speeds.txt", "w")
+        print(path + "/bezier_speeds.txt")
+        for curve_key in self.speeds.keys():
+            (w_droit, w_gauche) = self.speeds[curve_key]
+            for i in range(len(w_droit)):
+                txt = "{0},{1};".format(w_gauche[i], w_droit[i])
+                text_data.write(txt)
+            text_data.write("\n")
+        text_data.close()
+        pass
 
 
 Interface()
