@@ -35,7 +35,7 @@ class Interface():
     DRAW_METHOD = 1  # Permet à l'interface de choisir entre les methodes de trace (LIN,CIR)
     AXIS = [-5, 5, -1, 5]  # Definit l'espace de travail du robot
     GRID = True  # Definit la presence ou non de la grille
-    VOICE_RECO = True
+    VOICE_RECO = False
     BEZIER_DEGREE = 3
 
     def __init__(self):
@@ -124,6 +124,8 @@ class Interface():
             self.mic_button = tkinter.Button(master=self.query_frame, text="Mic", command=self.voice_command_window)
             self.mic_button.pack(side=tkinter.LEFT)
 
+        tkinter.Button(master = self.query_frame, text = "BParam", command=self.launch_SB).pack(side=tkinter.LEFT)
+
         self.precision_scale = tkinter.Scale(self.query_frame,from_=1, to=20, orient = "horizontal", tickinterval=2, length=100,label='Precision')
         self.precision_scale.pack(side=tkinter.LEFT)
 
@@ -143,6 +145,7 @@ class Interface():
         self.nb_bezier = 0
         self.curves = dict()
         self.speeds = dict()
+        self.last_param = dict()
 
     def erase_plt(self):
         """Reinitialise le trace"""
@@ -413,23 +416,37 @@ class Interface():
         """Met à jour la liste de directions"""
         self.directions = np.vstack((self.directions, dv / np.linalg.norm(dv)))
 
+    def launch_SB(self):
+        bezier_window = tkinter.Toplevel()
+        s = tkinter.Spinbox(bezier_window, from_=2, to=6)
+        s.pack(side = tkinter.LEFT)
+        print(s.get())
+        tkinter.Button(master= bezier_window, text = "set", command =lambda: self.set_degree(s)).pack(side=tkinter.LEFT)
+
+    def set_degree(self, s):
+        self.BEZIER_DEGREE = int(s.get())
+
     def command_txt(self):
         """Renvoie les commande sous forme de fichier texte, la suite du programme est gere par la partie Trajectoire"""
         path = os.getcwd()
         text_data = open(path + "/values.txt", "w")
         print(path + "/values.txt")
         command_dict = {0: 'R', 1: 'L', 2: 'A', 3:'B'}
-        for instruct in self.command[1:-1]:
+        for instruct in self.command[1:]:
             c = command_dict[int(instruct[0])]
+            # print(c)
+            # print(instruct)
             if c=='B':
-                txt = "{0},{1},{2};".format(c, instruct[1], 0)
+                x, y, theta = self.last_param[int(instruct[1])]
+                # print(x, y, theta)
+                txt = "{0},{1},{2},{3},{4};".format(c, instruct[1], x, y, theta)
             else:
                 txt = "{0},{1},{2};".format(c, round(instruct[1], 3), round(instruct[2], 3))
             text_data.write(txt)
-        instruct = self.command[-1]
-        c = command_dict[int(instruct[0])]
-        txt = "{0},{1},{2}".format(c, round(instruct[1], 3), round(instruct[2], 3))
-        text_data.write(txt)
+        # instruct = self.command[-1]
+        # c = command_dict[int(instruct[0])]
+        # txt = "{0},{1},{2}".format(c, round(instruct[1], 3), round(instruct[2], 3))
+        # text_data.write(txt)
         text_data.close()
         self.Generate_VxVy()
         self.export_bezier()
@@ -593,6 +610,10 @@ class Interface():
             self.controlpoints = []
             self.nb_bezier+=1
             self.curves.setdefault(self.nb_bezier, curve1)
+            x1,y1, x2, y2 = self.plt_draw[-1, 0], self.plt_draw[-1, 1], self.plt_draw[-2, 0], self.plt_draw[-2, 1]
+            dv = (x1-x2, y2-y1)
+            theta = self.get_ang((1,0), dv)
+            self.last_param.setdefault(self.nb_bezier, (x1, y1, theta))
             self.add_command(3,self.nb_bezier, 0)
         self.update_graph()
 
@@ -620,14 +641,14 @@ class Interface():
                 Lw.append((math.atan2(Lvy[k + 1], Lvx[k + 1]) - math.atan2(Lvy[k], Lvx[k])) / delay)
             Lw.append(0.)
             Lw.append(0.)
-            w_droit = []
-            w_gauche = []
-            for k in range(len(Lvx) - 1):
-                w_droit.append((math.sqrt(Lvx[k] ** 2 + Lvy[k] ** 2) + Lw[k] * L / 2) / r)
-                w_gauche.append((math.sqrt(Lvx[k] ** 2 + Lvy[k] ** 2) - Lw[k] * L / 2) / r)
-            w_droit.append(0.)
-            w_gauche.append(0.)
-            self.speeds.setdefault(curve_key, (w_droit, w_gauche))
+            # w_droit = []
+            # w_gauche = []
+            # for k in range(len(Lvx) - 1):
+            #     w_droit.append((math.sqrt(Lvx[k] ** 2 + Lvy[k] ** 2) + Lw[k] * L / 2) / r)
+            #     w_gauche.append((math.sqrt(Lvx[k] ** 2 + Lvy[k] ** 2) - Lw[k] * L / 2) / r)
+            # w_droit.append(0.)
+            # w_gauche.append(0.)
+            self.speeds.setdefault(curve_key, (dX, dY))
 
     def export_bezier(self):
         """Exporte les vitesses pour les trajectoires en courbe de Bézier dans un fichier texte"""
@@ -635,9 +656,13 @@ class Interface():
         text_data = open(path + "/bezier_speeds.txt", "w")
         print(path + "/bezier_speeds.txt")
         for curve_key in self.speeds.keys():
-            (w_droit, w_gauche) = self.speeds[curve_key]
-            for i in range(len(w_droit)):
-                txt = "{0},{1};".format(w_gauche[i], w_droit[i])
+            (vx, vy) = self.speeds[curve_key]
+            for i in range(len(vx)):
+                txt = "{0},".format(vx[i])
+                text_data.write(txt)
+            text_data.write("\n")
+            for i in range(len(vy)):
+                txt = "{0},".format(vy[i])
                 text_data.write(txt)
             text_data.write("\n")
         text_data.close()
