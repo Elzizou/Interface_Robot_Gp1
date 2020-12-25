@@ -6,5 +6,5 @@ Ecole : IMT Atlantique
 
 # Les languages utilisés
 Interface graphique : Python\
-Simulation: Python
-Arduino : C\
+Simulation: Python\
+Arduino : C
