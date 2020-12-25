@@ -1,0 +1,6 @@
+pandas~=1.1.5
+matplotlib~=3.3.3
+numpy~=1.19.4
+bezier~=2020.5.19
+pygame~=2.0.1
+SpeechRecognition
