@@ -1,0 +1,1 @@
+L'interface graphique se sert de bibliothèques externes tel que la bibliothèque bézier et speech_recognition qui ne sont pas facilement installable, vous pouvez alors utiliser la version sans complément pour que cela fonctionne.
